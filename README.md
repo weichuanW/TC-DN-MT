@@ -122,8 +122,19 @@ bash semantic.bash
 * **Traditional MT:** NLLB (No Language Left Behind), mBART.
 * **Modes:** Greedy Decoding, Temperature Sampling, 4-bit Quantization.
 
-## 📉 Evaluation data
-We release our evaluation results to facilitate the research on non-deterministic of modern machine translation (coming soon...)
+## 📉 Evaluation Data & Collaboration
+
+We are releasing our full evaluation results to facilitate further research into the non-deterministic nature of modern machine translation. We believe that community collaboration is essential to addressing the challenges of ND-MT evaluation.
+
+**🔗 [Join our Research Network / Access Data](https://forms.gle/vNyvrvwUgU9NkUp59)**
+
+If you are interested in:
+* Accessing the raw evaluation logs and generated candidates.
+* Contributing new models or metrics to the benchmark.
+* Discussing potential collaborations on ND-MT research.
+
+Please fill out the form above. We are actively looking for partners to expand the **ND-MT** research to more languages and domains.
+
 ## 📜 Citation
 
 If you use this code or findings in your research, please cite our paper:
