@@ -9,7 +9,7 @@ This study investigates Temperature-Constrained Non-Deterministic Machine Transl
 
 * **ND-MT Generation Framework**: A unified pipeline to generate temperature-constrained translations using SOTA LLMs (Llama3, Qwen2.5, Qwen3, DeepSeek) and specialized models (NLLB, mBART).
 * **Comprehensive Evaluation**: Support for both lexical-based (BLEU, METEOR, ROUGE) and semantic-based (COMET, BLEURT, BERTScore) metrics.
-* **ExpectoSample Strategy**: Implementation of our proposed strategy to assess metric reliability in non-deterministic settings.
+* **ExpectoSample Strategy**: You can utilize the evaluation results to implement our proposed strategy to assess metric reliability in non-deterministic settings.
 * **Multi-Direction Support**: Native support for 6 translation directions, including ZH↔EN, EN↔DE, and EN↔RU.
 
 ## 🛠️ Installation
