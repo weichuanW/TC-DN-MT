@@ -12,6 +12,7 @@ This study investigates Temperature-Constrained Non-Deterministic Machine Transl
 * **ExpectoSample Strategy**: You can utilize the evaluation results to implement our proposed strategy to assess metric reliability in non-deterministic settings.
 * **Multi-Direction Support**: Native support for 6 translation directions, including ZH↔EN, EN↔DE, and EN↔RU.
 
+
 ## 🛠️ Installation
 
 ```bash
@@ -121,6 +122,8 @@ bash semantic.bash
 * **Traditional MT:** NLLB (No Language Left Behind), mBART.
 * **Modes:** Greedy Decoding, Temperature Sampling, 4-bit Quantization.
 
+## 📉 Evaluation data
+We release our evaluation results to facilitate the research on non-deterministic of modern machine translation (coming soon...)
 ## 📜 Citation
 
 If you use this code or findings in your research, please cite our paper:
