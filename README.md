@@ -130,18 +130,15 @@ bash semantic.bash
 * **Traditional MT:** NLLB (No Language Left Behind), mBART.
 * **Modes:** Greedy Decoding, Temperature Sampling, 4-bit Quantization.
 
-## 📉 Evaluation Data & Collaboration
+## 📉 Evaluation Data (open source)
 
-We are releasing our full evaluation results to facilitate further research into the non-deterministic nature of modern machine translation. We believe that community collaboration is essential to addressing the challenges of ND-MT evaluation.
+Raw **model generations** (greedy and temperature-sampled hypotheses, multiple language pairs) are released on Hugging Face:
 
-**🔗 [Join our Research Network / Access Data](https://forms.gle/vNyvrvwUgU9NkUp59)**
+* **🤗 [Weichuan/TC-DN-MT-Genes](https://huggingface.co/datasets/Weichuan/TC-DN-MT-Genes)** — JSON per run (`source`, `reference`, `candidate_translations`), with subfolders for each experimental setting (see the dataset README on the Hub).
 
-If you are interested in:
-* Accessing the raw evaluation logs and generated candidates.
-* Contributing new models or metrics to the benchmark.
-* Discussing potential collaborations on ND-MT research.
+Aggregated **lexical evaluation tables** (CSV summaries) can be reproduced from this repository using `statistics_only/extract_final_results.py`, which writes consolidated outputs under `statistics_only/final_results/`.
 
-Please fill out the form above. We are actively looking for partners to expand the **ND-MT** research to more languages and domains.
+For questions, extensions, or contributions (new models, metrics, or languages), please use **[GitHub Issues](https://github.com/weichuanW/TC-DN-MT/issues)**.
 
 ## 📜 Citation
 
