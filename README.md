@@ -1,6 +1,6 @@
 # On Temperature-Constrained Non-Deterministic Machine Translation: Potential and Evaluation
 
-This repository contains the official implementation and evaluation data for the paper **"On Temperature-Constrained Non-Deterministic Machine Translation: Potential and Evaluation"**.
+This repository contains the official implementation and evaluation data for the paper **"On Temperature-Constrained Non-Deterministic Machine Translation: Potential and Evaluation"** ([arXiv:2601.13729](https://arxiv.org/abs/2601.13729)).
 
 ## 📄 Description
 
@@ -148,13 +148,12 @@ Please fill out the form above. We are actively looking for partners to expand t
 If you use this code or findings in your research, please cite our paper:
 
 ```bibtex
-@article{YourName2024NDMT,
+@article{wang2026temperature,
   title={On Temperature-Constrained Non-Deterministic Machine Translation: Potential and Evaluation},
-  author={Author One and Author Two and Author Three},
-  journal={arXiv preprint arXiv:24XX.XXXXX},
-  year={2024}
+  author={Wang, Weichuan and Liu, Mingyang and Song, Linqi and Ma, Chen},
+  journal={arXiv preprint arXiv:2601.13729},
+  year={2026}
 }
-
 ```
 
 ## 📄 License
