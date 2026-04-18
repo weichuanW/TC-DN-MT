@@ -22,7 +22,11 @@ pip install -r requirements.txt
 
 ```
 
-*Note: Ensure you have `torch` installed with CUDA support for GPU acceleration.*
+*Note: Ensure you have `torch` installed with CUDA support for GPU acceleration. For 4-bit quantization in `sampling_runs.py`, install `bitsandbytes` separately.*
+
+*Semantic metrics use **`unbabel-comet`** (provides `from comet import ...`). This is **not** the `comet-ml` experiment-tracking package.*
+
+*Model checkpoints and COMET weights default to `~/.cache/tc-dn-mt` unless you set the environment variable **`TC_DN_MT_CACHE`**.*
 
 ## 🚀 Usage
 
@@ -78,8 +82,12 @@ python before_lexical.py \
 python before_semantic.py \
     --input <input_file_or_folder> \
     --output <output_folder> \
-    --step <num_candidates_per_sample>
+    --step <num_candidates_per_sample> \
+    [--lang_pair en-zh|zh-en|en-de|de-en|en-ru|ru-en] \
+    [--src_lang <FLORES_code> --trg_lang <FLORES_code>]
 ```
+
+`--lang_pair` sets FLORES codes for LASER / SONAR (and must match the translation direction of your JSON). If omitted, defaults to English→Chinese (`eng_Latn` / `zho_Hans`).
 
 ### 3. Batch Evaluation
 
@@ -93,7 +101,7 @@ bash before_lexical.bash
 bash semantic.bash
 ```
 
-**Note**: Modify the paths and GPU device configurations in the bash scripts according to your setup.
+**Note**: `before_lexical.bash` and `semantic.bash` default to `./translation_results` → `./evaluation_results_*` inside the repo. Override with environment variables (`TC_DN_MT_LEXICAL_INPUT`, `TC_DN_MT_SEMANTIC_INPUT`, `TC_DN_MT_LANG_PAIR`, `TC_DN_MT_DEVICE`, etc.) or edit the scripts.
 
 ## 📂 Repository Structure
 

@@ -10,6 +10,15 @@ from tqdm.auto import tqdm, trange
 from sklearn.metrics import roc_auc_score
 import time
 
+
+def model_cache_dir() -> str:
+    """Shared cache for COMET, SentenceTransformers, LASER, etc. Override with env TC_DN_MT_CACHE."""
+    return os.environ.get(
+        "TC_DN_MT_CACHE",
+        os.path.join(os.path.expanduser("~"), ".cache", "tc-dn-mt"),
+    )
+
+
 class BeforeSemanticEvaluator:
     def __init__(self):
         pass
@@ -24,7 +33,7 @@ class BeforeSemanticEvaluator:
         if not scores:
             scores = dict()
         print("Computing COMETKIWI scores...")
-        model_path = download_model("Unbabel/wmt22-cometkiwi-da", saving_directory='[YOUR_MODEL_CACHE_DIR]')
+        model_path = download_model("Unbabel/wmt22-cometkiwi-da", saving_directory=model_cache_dir())
         model = load_from_checkpoint(model_path)
 
         comet_qe = model.predict(comet_sample, batch_size=batch_size, gpus=gpus)
@@ -56,7 +65,7 @@ class BeforeSemanticEvaluator:
             if not all(key in sample for key in ['src', 'ref', 'mt']):
                 print(f"Warning: Sample {i} missing required keys: {sample.keys()}")
                 
-        model_path = download_model("Unbabel/wmt22-comet-da", saving_directory='[YOUR_MODEL_CACHE_DIR]')
+        model_path = download_model("Unbabel/wmt22-comet-da", saving_directory=model_cache_dir())
         model = load_from_checkpoint(model_path)
 
         try:
@@ -116,7 +125,7 @@ class BeforeSemanticEvaluator:
         if not scores:
             scores = dict()
         print("Computing Sentence Transformer (current best, mpnet-base-v2) scores...")
-        model = SentenceTransformer("all-mpnet-base-v2", cache_folder="[YOUR_MODEL_CACHE_DIR]")
+        model = SentenceTransformer("all-mpnet-base-v2", cache_folder=model_cache_dir())
 
         source_embeddings = model.encode(source_sens)
         target_embeddings = model.encode(target_sens)
@@ -136,7 +145,7 @@ class BeforeSemanticEvaluator:
         if not scores:
             scores = dict()
         print("Computing LaBSE scores...")
-        model = SentenceTransformer("sentence-transformers/LaBSE", cache_folder="[YOUR_MODEL_CACHE_DIR]")
+        model = SentenceTransformer("sentence-transformers/LaBSE", cache_folder=model_cache_dir())
 
         source_embeddings = model.encode(source_sens)
         target_embeddings = model.encode(target_sens)
@@ -161,8 +170,10 @@ class BeforeSemanticEvaluator:
             scores = dict()
         print("Computing XNLI scores...")
         model_name = "joeddav/xlm-roberta-large-xnli"
-        model = AutoModelForSequenceClassification.from_pretrained(model_name, cache_dir="[YOUR_MODEL_CACHE_DIR]").cuda()
-        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir="[YOUR_MODEL_CACHE_DIR]")
+        cache = model_cache_dir()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = AutoModelForSequenceClassification.from_pretrained(model_name, cache_dir=cache).to(device)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=cache)
         scores_forward = self.compute_entailment_score(
             data_src, data_mt, model, tokenizer,
         )
@@ -212,7 +223,7 @@ class BeforeSemanticEvaluator:
     E: src_lang = 'eng_Latn'
     -- tgt_lang = 'zho_Hans'
     '''
-    def add_sonar_scores(self, src_lang, trg_lang, src_text, trg_text, device='cuda', scores=None):
+    def add_sonar_scores(self, src_lang, trg_lang, src_text, trg_text, device=None, scores=None):
         if not scores:
             scores = {}
         print("Computing SONAR scores...")
@@ -220,10 +231,12 @@ class BeforeSemanticEvaluator:
         from sonar.models.blaser.loader import load_blaser_model
 
         # Ensure device is in correct format and a valid device string
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
         if isinstance(device, list):
-            device = device[0] if device else 'cuda'
+            device = device[0] if device else "cuda"
         elif not isinstance(device, (str, torch.device)):
-            device = 'cuda'
+            device = "cuda"
         
         # Validate that device parameter is not text content
         if isinstance(device, str) and (len(device) > 10 or any(ord(c) > 127 for c in device)):
@@ -387,33 +400,4 @@ class BeforeSemanticEvaluator:
     D: serve for testing only   
     '''
     def test_cases(self):
-        # testing all methods in the external_detectors class
-        ext = external_detectors()
-        # compute the scores for these two pairs
-        
-        sample_src = ["This is a test sentence.", "This is a test sentence."]
-        sample_ref = ["这是测试句子", "这是我的老家"]
-        comet_sample_kiwi = [{'src': 'This is a test sentence.', 'mt': '这是测试句子'}, {'src': 'This is a test sentence.', 'mt': '这是我的老家'}]
-        comet_sample_data = [{'src': 'This is a test sentence.', 'ref': '这是测试句子', 'mt': '这是测试用句'}, {'src': 'This is a test sentence.', 'ref': '这是测试句子', 'mt': '这是我的老家'}]
-        scores_kiwi = ext.cometkiwi_detector(comet_sample_kiwi)
-        
-        scores_data = ext.cometdata_detector(comet_sample_data)
-        
-        scores_laser = ext.laser_detector('eng_Latn',"zho_Hans", sample_src, sample_ref)
-
-        scores_labse = ext.LaBSE_detector(sample_src, sample_ref)
-
-        scores_sentrans = ext.sent_transformer_detector(sample_src, sample_ref)
-
-        scores_xnli = ext.xnli_detector(sample_src, sample_ref)
-
-        scores_sonar = ext.add_sonar_scores('eng_Latn',"zho_Hans", sample_src, sample_ref)
-
-        print('cometkiwi_score:', scores_kiwi['cometkiwi_score'])
-        print('cometda_score:', scores_data['cometda_score'])
-        print('sonar_score:', scores_sonar['sonar_score'])
-        print('blaser_score:', scores_sonar['blaser_score'])
-        print('laser_score:', scores_laser['laser_score'])
-        print('labse_score:', scores_labse['labse_score'])
-        print('sentrans_score:', scores_sentrans['sentrans_score'])
-        print('xnli_score:', scores_xnli['xnli_score'])
+        raise NotImplementedError("Use `python before_semantic.py` on sample JSON outputs instead.")

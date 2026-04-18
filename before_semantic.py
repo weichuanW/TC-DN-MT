@@ -5,9 +5,22 @@ import os
 from pathlib import Path
 import argparse
 
+# FLORES-style codes for LASER / SONAR; match your generation direction.
+LANG_PAIR_PRESETS = {
+    "en-zh": ("eng_Latn", "zho_Hans"),
+    "zh-en": ("zho_Hans", "eng_Latn"),
+    "en-de": ("eng_Latn", "deu_Latn"),
+    "de-en": ("deu_Latn", "eng_Latn"),
+    "en-ru": ("eng_Latn", "rus_Cyrl"),
+    "ru-en": ("rus_Cyrl", "eng_Latn"),
+}
+
+
 class JSONEvaluationProcessor:
-    def __init__(self):
+    def __init__(self, src_lang: str = "eng_Latn", trg_lang: str = "zho_Hans"):
         self.evaluator = BeforeSemanticEvaluator()
+        self.src_lang = src_lang
+        self.trg_lang = trg_lang
     
     def load_json_data(self, json_file_path):
         """Load JSON input data"""
@@ -43,8 +56,8 @@ class JSONEvaluationProcessor:
             src_items=src_items,
             mt_items=mt_items,
             ref_items=ref_items,
-            src_lang="eng_Latn",
-            trg_lang="zho_Hans"
+            src_lang=self.src_lang,
+            trg_lang=self.trg_lang,
         )
         return scores
     
@@ -130,9 +143,15 @@ def process_single_file(processor: JSONEvaluationProcessor, input_file: str, out
         print(f"Error during evaluation: {input_file} - {e}")
 
 
-def process_path(input_path: str, output_dir: str, step: int = 10):
+def process_path(
+    input_path: str,
+    output_dir: str,
+    step: int = 10,
+    src_lang: str = "eng_Latn",
+    trg_lang: str = "zho_Hans",
+):
     """If input_path is a file, process single file; if it's a directory, batch process all .json files in the directory"""
-    processor = JSONEvaluationProcessor()
+    processor = JSONEvaluationProcessor(src_lang=src_lang, trg_lang=trg_lang)
     in_path = Path(input_path)
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -157,18 +176,32 @@ def process_path(input_path: str, output_dir: str, step: int = 10):
 def main():
 
     parser = argparse.ArgumentParser(description="Semantic evaluation: supports single file or batch processing of directories")
-    parser.add_argument("--input", default="../translation_results_check")
-    parser.add_argument("--output", default="../evaluation_results_check_semantic")
+    parser.add_argument("--input", default="./translation_results")
+    parser.add_argument("--output", default="./evaluation_results_semantic")
     parser.add_argument("--step", type=int, default=10)
-    # parser.add_argument("--cuda_visible_devices", type=str, default="2")
+    parser.add_argument(
+        "--src_lang",
+        default="eng_Latn",
+        help="Source language (FLORES code), e.g. eng_Latn, deu_Latn",
+    )
+    parser.add_argument(
+        "--trg_lang",
+        default="zho_Hans",
+        help="Target language (FLORES code), e.g. zho_Hans, eng_Latn",
+    )
+    parser.add_argument(
+        "--lang_pair",
+        default=None,
+        choices=list(LANG_PAIR_PRESETS.keys()),
+        help="Optional shortcut: sets --src_lang/--trg_lang (e.g. en-de)",
+    )
     args = parser.parse_args()
 
-    # Set CUDA visible devices (must be done before creating any CUDA tensors/models)
-    # if args.cuda_visible_devices is not None:
-    #     os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
+    src_lang, trg_lang = args.src_lang, args.trg_lang
+    if args.lang_pair:
+        src_lang, trg_lang = LANG_PAIR_PRESETS[args.lang_pair]
 
-    # transfer the parser to real values
-    process_path(args.input, args.output, step=args.step)
+    process_path(args.input, args.output, step=args.step, src_lang=src_lang, trg_lang=trg_lang)
 
 if __name__ == "__main__":
     main()

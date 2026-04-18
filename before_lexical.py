@@ -369,11 +369,24 @@ if __name__ == "__main__":
     # Evaluate a single file
     # main()
     import argparse
+
+    def str2bool(v):
+        if isinstance(v, bool):
+            return v
+        if v is None:
+            return True
+        s = str(v).lower()
+        if s in ("yes", "true", "t", "y", "1"):
+            return True
+        if s in ("no", "false", "f", "n", "0"):
+            return False
+        raise argparse.ArgumentTypeError("Boolean value expected for --skip_existing")
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_folder", type=str, default="../translation_results_check")
-    parser.add_argument("--output_folder", type=str, default="../evaluation_results_check_10")
-    parser.add_argument("--device", type=str, default="cuda:2")
-    parser.add_argument("--skip_existing", type=bool, default=True)
+    parser.add_argument("--input_folder", type=str, default="./translation_results")
+    parser.add_argument("--output_folder", type=str, default="./evaluation_results_lexical")
+    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--skip_existing", type=str2bool, default=True)
     args = parser.parse_args()
     
     

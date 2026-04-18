@@ -1,6 +1,8 @@
 # Core Deep Learning Framework
 torch>=2.0.0
 transformers>=4.30.0
+# Optional: 4-bit loading in sampling_runs.py (`BitsAndBytesConfig`)
+# bitsandbytes>=0.41.0
 
 # Evaluation Metrics
 evaluate>=0.4.0
@@ -9,8 +11,8 @@ rouge-score>=0.1.2
 bert-score>=0.3.13
 bleurt-pytorch>=0.2.2
 
-# COMET Metric
-comet-ml>=3.0.0
+# COMET (reference-based / QE metrics; `from comet import ...` — not comet-ml experiment tracking)
+unbabel-comet>=2.2.0
 
 # Sentence Embeddings and Similarity
 sentence-transformers>=2.2.0

@@ -7,6 +7,37 @@ from tqdm import tqdm
 import re
 from transformers import StoppingCriteriaList, StoppingCriteria
 
+# dataset_key -> (dataset_name, src_human, tgt_human, src_filename, ref_filename)
+DATASET_REGISTRY = {
+    "23en-zh": ("23en-zh", "English", "Chinese", "23en-zh.en", "23en-zh.zh"),
+    "23zh-en": ("23zh-en", "Chinese", "English", "23zh-en.zh", "23zh-en.en"),
+    "24en-zh": ("24en-zh", "English", "Chinese", "24en-zh.en", "24en-zh.zh"),
+    "23en-de": ("23en-de", "English", "German", "23en-de.en", "23en-de.de"),
+    "23en-ru": ("23en-ru", "English", "Russian", "23en-ru.en", "23en-ru.ru"),
+    "23de-en": ("23de-en", "German", "English", "23de-en.de", "23de-en.en"),
+    "23ru-en": ("23ru-en", "Russian", "English", "23ru-en.ru", "23ru-en.en"),
+    "24en-de": ("24en-de", "English", "German", "24en-de.en", "24en-de.de"),
+    "24en-ru": ("24en-ru", "English", "Russian", "24en-ru.en", "24en-ru.ru"),
+}
+
+NLLB_FLORES_BY_PAIR = {
+    ("English", "Chinese"): ("eng_Latn", "zho_Hans"),
+    ("Chinese", "English"): ("zho_Hans", "eng_Latn"),
+    ("English", "German"): ("eng_Latn", "deu_Latn"),
+    ("German", "English"): ("deu_Latn", "eng_Latn"),
+    ("English", "Russian"): ("eng_Latn", "rus_Cyrl"),
+    ("Russian", "English"): ("rus_Cyrl", "eng_Latn"),
+}
+
+MBART_FORCED_BOS_BY_PAIR = {
+    ("English", "Chinese"): "zh_CN",
+    ("Chinese", "English"): "en_XX",
+    ("English", "German"): "de_DE",
+    ("German", "English"): "en_XX",
+    ("English", "Russian"): "ru_RU",
+    ("Russian", "English"): "en_XX",
+}
+
 class KeywordsStoppingCriteriaCase(StoppingCriteria):
     '''
     D: designed for early stopping with pre-defined keywords on case inference
@@ -88,16 +119,16 @@ def get_model_name_from_input(input_name):
     return input_name
 
 def get_dataset_info_from_input(input_name):
-    """Determine dataset information from input_name"""
-    dataset_part = input_name.split('_')[0]
-    if '23en-zh' in dataset_part:
-        return '23en-zh', 'English', 'Chinese'
-    elif '23zh-en' in dataset_part:
-        return '23zh-en', 'Chinese', 'English'
-    elif '24en-zh' in dataset_part:
-        return '24en-zh', 'English', 'Chinese'
-    else:
-        raise ValueError(f"Unknown dataset format in input_name: {input_name}")
+    """Determine dataset information from input_name (first '_' segment must match data/ keys)."""
+    dataset_part = input_name.split("_")[0]
+    if dataset_part not in DATASET_REGISTRY:
+        known = ", ".join(sorted(DATASET_REGISTRY.keys()))
+        raise ValueError(
+            f"Unknown dataset in input_name: '{dataset_part}'. "
+            f"Use one of: {known}"
+        )
+    _name, src_h, tgt_h, _s, _r = DATASET_REGISTRY[dataset_part]
+    return _name, src_h, tgt_h
 
 def load_model_and_tokenizer(model_path, model_name, use_quantization=False, cache_dir=""):
     """Load model and tokenizer"""
@@ -142,28 +173,30 @@ def load_model_and_tokenizer(model_path, model_name, use_quantization=False, cac
     
     return model, tokenizer
 
-def load_nllb_model_and_tokenizer(model_path, model_name, use_quantization=False, cache_dir=""):
-    """Load NLLB model and tokenizer"""
+def load_nllb_model_and_tokenizer(
+    model_path, model_name, use_quantization=False, cache_dir="", src_lang="English", tgt_lang="Chinese"
+):
+    """Load NLLB model and a tokenizer configured for src_lang -> tgt_lang (FLORES codes)."""
     print("Loading NLLB model...")
     
-    # If model_path is provided, use it; otherwise use model_name directly
+    pair = (src_lang, tgt_lang)
+    if pair not in NLLB_FLORES_BY_PAIR:
+        raise ValueError(
+            f"NLLB is only wired for pairs in {list(NLLB_FLORES_BY_PAIR.keys())}; got {src_lang} -> {tgt_lang}"
+        )
+    src_flores, tgt_flores = NLLB_FLORES_BY_PAIR[pair]
+
     full_model_path = model_path
     
-    # Prepare tokenizer loading parameters
     tokenizer_kwargs = {
-        'trust_remote_code': True,
-        'src_lang': 'eng_Latn',
-        'tgt_lang': 'zho_Hans'
+        "trust_remote_code": True,
+        "src_lang": src_flores,
+        "tgt_lang": tgt_flores,
     }
     if cache_dir:
-        tokenizer_kwargs['cache_dir'] = cache_dir
+        tokenizer_kwargs["cache_dir"] = cache_dir
     
-    tokenizer_in = AutoTokenizer.from_pretrained(full_model_path, **tokenizer_kwargs)
-    
-    # Prepare parameters for tokenizer_out
-    tokenizer_kwargs['src_lang'] = 'zho_Hans'
-    tokenizer_kwargs['tgt_lang'] = 'eng_Latn'
-    tokenizer_out = AutoTokenizer.from_pretrained(full_model_path, **tokenizer_kwargs)
+    tokenizer = AutoTokenizer.from_pretrained(full_model_path, **tokenizer_kwargs)
     
     # Prepare model loading parameters
     model_kwargs = {
@@ -189,7 +222,7 @@ def load_nllb_model_and_tokenizer(model_path, model_name, use_quantization=False
         print("Loading NLLB normally with FP16...")
         model = AutoModelForSeq2SeqLM.from_pretrained(full_model_path, **model_kwargs)
     
-    return model, tokenizer_in, tokenizer_out
+    return model, tokenizer
 
 def load_mbart_model_and_tokenizer(model_path, model_name, use_quantization=False, cache_dir=""):
     """Load mBART model and tokenizer"""
@@ -287,6 +320,12 @@ def translate_line_pretrain(text, model, tokenizer, src_lang, tgt_lang, sampling
     """Pre-train mode translation (few-shot)"""
     if not text.strip():
         return []
+
+    if (src_lang, tgt_lang) not in (("English", "Chinese"), ("Chinese", "English")):
+        raise ValueError(
+            "Few-shot pretrain prompts only cover English <-> Chinese. "
+            "Use a chat/instruct model tag (no 'pre' in the model segment) for other language pairs."
+        )
 
     if src_lang == "English" and tgt_lang == "Chinese":
         prompt = f"""Translate the following English sentences to Chinese:
@@ -535,15 +574,10 @@ def translate_line_nllb(text, model, tokenizer, src_lang, tgt_lang, sampling_siz
     if not text.strip():
         return [text]
 
-    # Determine which tokenizer and target language code to use based on language direction
-    if src_lang == "English" and tgt_lang == "Chinese":
-        # Use tokenizer_in (eng_Latn -> zho_Hans)
-        tgt_lang_code = 'zho_Hans'
-    elif src_lang == "Chinese" and tgt_lang == "English":
-        # Use tokenizer_out (zho_Hans -> eng_Latn)  
-        tgt_lang_code = 'eng_Latn'
-    else:
-        raise ValueError(f"Unsupported language pair: {src_lang} -> {tgt_lang}")
+    pair = (src_lang, tgt_lang)
+    if pair not in NLLB_FLORES_BY_PAIR:
+        raise ValueError(f"Unsupported language pair for NLLB: {src_lang} -> {tgt_lang}")
+    _src_flores, tgt_lang_code = NLLB_FLORES_BY_PAIR[pair]
 
     inputs = tokenizer(text, return_tensors="pt").to(model.device)
 
@@ -584,17 +618,14 @@ def translate_line_nllb(text, model, tokenizer, src_lang, tgt_lang, sampling_siz
     return translations
 
 def translate_line_mbart(text, model, tokenizer, src_lang, tgt_lang, sampling_size, temperature, greedy=False):
-    """mBART mode translation"""
+    """mBART-50 many-to-many style translation (forced BOS = target lang)."""
     if not text.strip():
         return [text]
 
-    # Determine target language code based on language direction
-    if src_lang == "English" and tgt_lang == "Chinese":
-        tgt_lang_code = 'zh_CN'
-    elif src_lang == "Chinese" and tgt_lang == "English":
-        tgt_lang_code = 'en_XX'
-    else:
-        raise ValueError(f"Unsupported language pair: {src_lang} -> {tgt_lang}")
+    pair = (src_lang, tgt_lang)
+    if pair not in MBART_FORCED_BOS_BY_PAIR:
+        raise ValueError(f"Unsupported language pair for mBART: {src_lang} -> {tgt_lang}")
+    tgt_lang_code = MBART_FORCED_BOS_BY_PAIR[pair]
 
     inputs = tokenizer(text, return_tensors="pt").to(model.device)
 
@@ -647,13 +678,9 @@ def translate_line(text, model, tokenizer, src_lang, tgt_lang, sampling_size, te
     elif mode == 'deepseek':
         return translate_line_deepseek(text, model, tokenizer, src_lang, tgt_lang, sampling_size, temperature, greedy)
     elif mode == 'nllb':
-        # For NLLB, select appropriate tokenizer based on translation direction
-        if src_lang == "English" and tgt_lang == "Chinese":
-            return translate_line_nllb(text, model, tokenizer, src_lang, tgt_lang, sampling_size, temperature, greedy)
-        elif src_lang == "Chinese" and tgt_lang == "English":
-            return translate_line_nllb(text, model, tokenizer_out, src_lang, tgt_lang, sampling_size, temperature, greedy)
-        else:
-            raise ValueError(f"Unsupported language pair for NLLB: {src_lang} -> {tgt_lang}")
+        return translate_line_nllb(
+            text, model, tokenizer, src_lang, tgt_lang, sampling_size, temperature, greedy
+        )
     elif mode == 'mbart':
         return translate_line_mbart(text, model, tokenizer, src_lang, tgt_lang, sampling_size, temperature, greedy)
     else:
@@ -669,20 +696,11 @@ def load_references(ref_file):
         return []
 
 def get_dataset_files(dataset_name, dataset_path):
-    """Get source file and reference file based on dataset name and path"""
-    if dataset_name == '23en-zh':
-        src_file = os.path.join(dataset_path, '23en-zh.en')
-        ref_file = os.path.join(dataset_path, '23en-zh.zh')
-    elif dataset_name == '23zh-en':
-        src_file = os.path.join(dataset_path, '23zh-en.zh')
-        ref_file = os.path.join(dataset_path, '23zh-en.en')
-    elif dataset_name == '24en-zh':
-        src_file = os.path.join(dataset_path, '24en-zh.en')
-        ref_file = os.path.join(dataset_path, '24en-zh.zh')
-    else:
+    """Get source file and reference file based on dataset name and path."""
+    if dataset_name not in DATASET_REGISTRY:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
-    
-    return src_file, ref_file
+    _n, _s, _t, src_rel, ref_rel = DATASET_REGISTRY[dataset_name]
+    return os.path.join(dataset_path, src_rel), os.path.join(dataset_path, ref_rel)
 
 def main():
     args = parse_args()
@@ -707,8 +725,13 @@ def main():
         print(f"File {output_file} already exists, skipping translation")
         return
     if mode == 'nllb':
-        model, tokenizer, tokenizer_out = load_nllb_model_and_tokenizer(
-            args.model_path, model_name, use_quantization, args.cache_dir
+        model, tokenizer = load_nllb_model_and_tokenizer(
+            args.model_path,
+            model_name,
+            use_quantization,
+            args.cache_dir,
+            src_lang,
+            tgt_lang,
         )
     elif mode == 'mbart':
         model, tokenizer = load_mbart_model_and_tokenizer(
